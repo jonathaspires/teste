@@ -1,0 +1,54 @@
+if not I_am_aware_that_veo_is_a_paid_feature_and_am_OK_with_paying_to_run_this_colab:
+  print("Veo is a paid feature. Please change the variable 'I_am_aware_that_veo_is_a_paid_feature_and_am_OK_with_paying_to_run_this_colab' to True if you are okay with paying to run it.")
+
+else:
+  import time
+  from google.genai import types
+  from IPython.display import Video, HTML
+  from PIL import Image
+  import io
+
+  prompt = "Animate this image in the Simpsons style with smooth movements, without exaggerated movements." # @param {"type":"string","placeholder":"Write your owm prompt of leave empty to let the model decide"}
+  image_name = "11 (1).jpg" # @param {type: "string", "placeholder":"Enter the name of your image or leave empty for the one you just uploaded."}
+
+  # Optional parameters
+  negative_prompt = "ugly, low quality" # @param {type: "string"}
+  aspect_ratio = "9:16" # @param ["16:9", "9:16"]
+  number_of_videos = 1 # @param {type:"slider", min:1, max:4, step:1}
+  duration = 6 # @param {type:"slider", min:5, max:8, step:1}
+
+  # Loading the image
+  if image_name=="":
+    image_name = "image.jpg"
+  im = Image.open(image_name)
+
+  # converting the image to bytes
+  image_bytes_io = io.BytesIO()
+  im.save(image_bytes_io, format=im.format)
+  image_bytes = image_bytes_io.getvalue()
+
+  operation = client.models.generate_videos(
+      model=VEO_MODEL_ID,
+      prompt=prompt,
+      image=types.Image(image_bytes=image_bytes, mime_type=im.format),
+      config=types.GenerateVideosConfig(
+        # At the moment the config must not be empty
+        aspect_ratio = aspect_ratio,  # 16:9 or 9:16
+        number_of_videos = number_of_videos, # supported value is 1-4
+        negative_prompt = negative_prompt,
+        duration_seconds = duration, # supported value is 5-8
+      ),
+  )
+
+  # Waiting for the video(s) to be generated
+  while not operation.done:
+      time.sleep(20)
+      operation = client.operations.get(operation)
+      print(operation)
+
+  print(operation.result.generated_videos)
+
+  for n, generated_video in enumerate(operation.result.generated_videos):
+    client.files.download(file=generated_video.video)
+    generated_video.video.save(f'video{n}.mp4') # Saves the video(s)
+    display(generated_video.video.show()) # Displays the video(s) in a notebook
